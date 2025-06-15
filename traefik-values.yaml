@@ -1,0 +1,7 @@
+deployment:
+  replicas: 3
+ingressRoute:
+  dashboard:
+    enabled: true
+    entryPoints: [web, websecure]
+    matchRule: Host(`traefik.kube.ancored.ru`)
