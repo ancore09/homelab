@@ -1,13 +1,14 @@
 # Установка Traefik
-#### Поды крутятся, ингрессы мутятся
+
+Руководство по установке и настройке Traefik ingress контроллера для K3s кластера.
 
 # Подготовка
 
-На данном этапе у нас уже есть k3s кластер с тремя нодами, настроенным kube-vip и рабочей утилитой kubectl на локальной машине.
+На данном этапе у нас уже есть K3s кластер с тремя нодами, настроенным kube-vip и рабочей утилитой kubectl на локальной машине.
 
 ## Helm
 
-Чтобы удобно деплоить различные инструменты, нам необходимо установить утилиту helm на локальной машине:
+Чтобы удобно деплоить различные инструменты, нам необходимо установить утилиту Helm на локальной машине:
 
 ```sh
 brew install helm
@@ -15,15 +16,15 @@ brew install helm
 
 На этом подготовка закончена.
 
-# Деплоим Traefik
+# Деплой Traefik
 
-Создаем файл для конфигурации helm чарта traefik-values.yaml
+Создаем файл для конфигурации Helm чарта `traefik-values.yaml`:
 ```yaml
 deployment:
   replicas: 3
 ```
 
-Добавляем helm репозиторий
+Добавляем Helm репозиторий:
 ```sh
 helm repo add traefik https://traefik.github.io/charts
 helm repo update
@@ -33,22 +34,22 @@ helm repo update
 ```sh
 helm install traefik traefik/traefik --namespace traefik --create-namespace --values traefik-values.yaml
 ```
-Этот чарт создаст деплой traefik, а также ресурс с типом LoadBalancer. Kube-vip выдаст traefik свободный айпи адрес.
+Этот чарт создаст деплой Traefik, а также ресурс с типом LoadBalancer. Kube-vip выдаст Traefik свободный IP адрес.
 
 ```sh
 kubectl get pods -n traefik
 ```
 
-## Настраиваем DNS
+## Настройка DNS
 
-В конфигурацию зоны вашего домена в dns сервере необходимо добавить запись, которая будет вести в traefik. 
+В конфигурацию зоны вашего домена в DNS сервере необходимо добавить запись, которая будет вести в Traefik.
 
-В моем случае используется домен ancored.ru. Все, что касается k3s находится в домене kube.ancored.ru. Поэтому я добавляю запись с вайлдкардом дя этого домена:
+В моем случае используется домен `ancored.ru`. Все, что касается K3s находится в домене `kube.ancored.ru`. Поэтому я добавляю запись с wildcard для этого домена:
 ```
-*.kube  IN  A   192.168.30.12 # айпи traefik
+*.kube  IN  A   192.168.30.12 # IP Traefik
 ```
 
-## Проверка
+## Тестирование
 
 Уже сейчас мы можем проверить работу Traefik.
 
@@ -61,11 +62,10 @@ kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/con
 kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
 ```
 
-Далее применяем следующие манифесты черех `kubectl apply -f`
+Далее применяем следующие манифесты через `kubectl apply -f`:
 
-[Манифест для nginx](../nginx-manifest.yaml)
-
-[Манифест для ClusterIp](../nginx-clusterip-manifest.yaml)
+- [Манифест для nginx](../nginx-manifest.yaml)
+- [Манифест для ClusterIP](../nginx-clusterip-manifest.yaml)
 
 Осталось применить манифест для IngressRoute - именно на него смотрит Traefik.
 
@@ -74,9 +74,9 @@ kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/con
 - match: Host(`nginx-test.kube.ancored.ru`)
 ```
 
-Также применяем манифест через `kubectl apply -f`
+Также применяем манифест через `kubectl apply -f`:
 
-[Манифест для IngressRoute](../nginx-ingressroute.yaml)
+- [Манифест для IngressRoute](../nginx-ingressroute.yaml)
 
 Теперь мы можем сделать запрос на nginx через Traefik:
 ```sh
@@ -87,7 +87,7 @@ curl http://nginx-test.kube.ancored.ru # указать ваш домен
 
 # Настройка Traefik Dashboard
 
-У traefik есть свой дашборд, который выключен по умолчанию. Чтобы его включить надо изменить параметры helm чарта:
+У Traefik есть свой dashboard, который выключен по умолчанию. Чтобы его включить надо изменить параметры Helm чарта:
 ```yaml
 deployment:
   replicas: 3
@@ -98,11 +98,17 @@ ingressRoute:
     matchRule: Host(`traefik.kube.ancored.ru`) # выбираем домен
 ```
 
-После этого делаем апгрейд деплоя traefik:
+После этого делаем upgrade деплоя Traefik:
 ```sh
 helm upgrade traefik traefik/traefik --namespace traefik --values traefik-values.yaml
 ```
 
 # Настройка SSL сертификатов
 
-В следующих сериях, я заеблася..
+## Автоматическое получение сертификатов
+
+Для автоматического получения SSL сертификатов можно использовать Let's Encrypt с cert-manager или встроенные возможности Traefik.
+
+Также можно использовать внешний стетический сертификат. 
+
+**Примечание:** Детальная настройка SSL сертификатов будет добавлена в следующих версиях документации.
