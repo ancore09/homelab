@@ -1,0 +1,9 @@
+services:
+  type: ClusterIP
+ingress:
+  enabled: true
+  hosts:
+    - host: "portainer.kube.ancored.ru"
+      paths:
+        - path: "/"
+          port: "9000"

@@ -1,0 +1,15 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana-web-ui
+  namespace: monitoring
+spec:
+  entryPoints:
+  - web
+  - websecure
+  routes:
+  - match: Host(`grafana.kube.ancored.ru`)
+    kind: Rule
+    services:
+    - name: grafana
+      port: 80
