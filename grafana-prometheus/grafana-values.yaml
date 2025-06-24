@@ -34,9 +34,16 @@ alertmanager:
   enabled: true
   ingress:
     enabled: false
+  alertmanagerSpec:
+    retention: 3h
 
 grafana:
   enabled: true
+  persistence:
+    type: pvc
+    enabled: true
+    accessModes: ["ReadWriteOnce"]
+    size: 500Mi
   fullnameOverride: grafana
   forceDeployDatasources: false
   forceDeployDashboards: false
@@ -173,8 +180,8 @@ prometheus:
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
     probeSelectorNilUsesHelmValues: false
-    retention: 6h
-    retentionSize: 4GiB
+    retention: 3h
+    retentionSize: 10GB
     enableAdminAPI: true
     walCompression: true
     scrapeInterval: 30s

@@ -1,0 +1,136 @@
+id: add_caddy_entry
+namespace: anco
+
+inputs:
+  - id: domain_name
+    type: STRING
+    required: true
+    defaults: "test-name.ancored.ru"
+    description: "Domain name for the reverse proxy (e.g., app.ancored.ru)"
+  
+  - id: target_ip
+    type: STRING
+    required: true
+    defaults: "192.168.1.45"
+    description: "Target IP address (e.g., 192.168.1.100)"
+  
+  - id: target_port
+    type: STRING
+    required: true
+    defaults: "3051"
+    description: "Target port (e.g., 8080)"
+  
+  - id: include_tls
+    type: BOOL
+    required: true
+    defaults: true
+    description: "Whether to include TLS configuration (import tls-config)"
+  
+  - id: tls_insecure_skip_verify
+    type: BOOL
+    required: false
+    defaults: false
+    description: "Skip TLS verification for backend (like Proxmox)"
+  
+  - id: ssh_host
+    type: STRING
+    required: true
+    defaults: bravo.ancored.ru
+    description: "SSH host/IP address of the remote server"
+  
+  - id: caddy_container_name
+    type: STRING
+    required: true
+    defaults: "caddy"
+    description: "Name of the Caddy Docker container"
+  
+  - id: caddy_config_path
+    type: STRING
+    required: true
+    defaults: "/etc/caddy/Caddyfile"
+    description: "Path to Caddyfile inside the container"
+  
+  - id: host_config_path
+    type: STRING
+    required: true
+    defaults: "/home/ancored/caddy/Caddyfile"
+    description: "Path to Caddyfile on the host system (mounted volume)"
+
+tasks:
+  - id: backup_config # делаем бекап текущего конфига
+    type: io.kestra.plugin.fs.ssh.Command
+    host: bravo.ancored.ru
+    port: "22"
+    authMethod: PASSWORD
+    username: ssh_user #replace with secrets
+    password: ssh_pass #replace with secrets
+    commands:
+      - cp {{ inputs.host_config_path }} {{ inputs.host_config_path }}.backup
+
+  - id: generate_config # генерим новую запись для конфига, обновляем конфиг
+    type: io.kestra.plugin.fs.ssh.Command
+    host: bravo.ancored.ru
+    port: "22"
+    authMethod: PASSWORD
+    username: ssh_user #replace with secrets
+    password: ssh_pass #replace with secrets
+    commands:
+      - |
+        if [ "{{ inputs.include_tls }}" = "true" ]; then
+          if [ "{{ inputs.tls_insecure_skip_verify }}" = "true" ]; then
+            NEW_ENTRY="{{ inputs.domain_name }} {
+         import tls-config
+         reverse_proxy {{ inputs.target_ip }}:{{ inputs.target_port }} {
+          transport http {
+           tls_insecure_skip_verify
+          }
+         }
+        }"
+          else
+            NEW_ENTRY="{{ inputs.domain_name }} {
+         import tls-config
+         reverse_proxy {{ inputs.target_ip }}:{{ inputs.target_port }}
+        }"
+          fi
+        else
+          if [ "{{ inputs.tls_insecure_skip_verify }}" = "true" ]; then
+            NEW_ENTRY="{{ inputs.domain_name }} {
+         reverse_proxy {{ inputs.target_ip }}:{{ inputs.target_port }} {
+          transport http {
+           tls_insecure_skip_verify
+          }
+         }
+        }"
+          else
+            NEW_ENTRY="{{ inputs.domain_name }} {
+         reverse_proxy {{ inputs.target_ip }}:{{ inputs.target_port }}
+        }"
+          fi
+        fi
+        
+        echo "Generated new entry:"
+        echo "$NEW_ENTRY"
+      - echo "$NEW_ENTRY" >> {{ inputs.host_config_path }}
+
+  - id: restart_caddy # релоадим прокси с новым конфигом
+    type: io.kestra.plugin.fs.ssh.Command
+    host: bravo.ancored.ru
+    port: "22"
+    authMethod: PASSWORD
+    username: ssh_user #replace with secrets
+    password: ssh_pass #replace with secrets
+    commands:
+      - docker exec {{ inputs.caddy_container_name }} caddy reload --config {{ inputs.caddy_config_path }}
+
+errors:
+  - id: restore_from_backup_config # если все наебнулось - ресторим конфиг из бекапа
+    type: io.kestra.plugin.fs.ssh.Command
+    host: bravo.ancored.ru
+    port: "22"
+    authMethod: PASSWORD
+    username: ssh_user #replace with secrets
+    password: ssh_pass #replace with secrets
+    commands:
+      - mv {{ inputs.host_config_path }} {{ inputs.host_config_path }}.bad_config
+      - mv {{ inputs.host_config_path }}.backup {{ inputs.host_config_path }}
+      - docker exec {{ inputs.caddy_container_name }} caddy reload --config {{ inputs.caddy_config_path }}
