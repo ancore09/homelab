@@ -1,0 +1,33 @@
+---
+# Middleware to ensure all headers are passed through
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: headers-passthrough
+  namespace: nginx-istio
+spec:
+  headers:
+    # Don't remove any headers
+    accessControlAllowHeaders:
+      - "*"
+    accessControlAllowOriginList:
+      - "*"
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nginx-istio-ingressroute
+  namespace: nginx-istio
+spec:
+  entryPoints:
+  - web
+  - websecure
+  routes:
+  - match: Host(`nginx-itsio.kube.ancored.ru`)
+    kind: Rule
+    services:
+    - name: istio-ingressgateway
+      namespace: istio-ingress
+      port: 80
+      kind: Service
+      passHostHeader: true

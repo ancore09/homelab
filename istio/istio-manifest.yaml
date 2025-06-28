@@ -1,0 +1,39 @@
+# istio-config.yaml
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: nginx-destination
+  namespace: nginx-istio
+spec:
+  host: nginx-istio-service
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: nginx-virtual-service
+  namespace: nginx-istio
+spec:
+  hosts:
+  - nginx-itsio.kube.ancored.ru
+  - nginx-istio-service
+  - nginx-istio-service.nginx-istio.svc.cluster.local
+  gateways:
+  - nginx-gateway
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: nginx-istio-service
+        subset: v1
+      weight: 0
+    - destination:
+        host: nginx-istio-service
+        subset: v2
+      weight: 100
