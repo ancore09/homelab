@@ -1,0 +1,61 @@
+services:
+  registry:
+    image: registry:2
+    container_name: docker-registry
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Registry configuration
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      REGISTRY_HTTP_ADDR: 0.0.0.0:5000
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: "[https://registry-ui.ancored.ru]" # external ui url
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods: "[HEAD, GET, OPTIONS, DELETE]"
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers: "[Authorization, Accept]"
+      REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers: "[Docker-Content-Digest]"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - registry-data:/var/lib/registry
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:5000/v2/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Registry UI for web interface
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    container_name: docker-registry-ui
+    restart: unless-stopped
+    ports:
+      - "5001:80"
+    environment:
+      # Point to your registry
+      REGISTRY_URL: https://registry.ancored.ru # registry url
+      REGISTRY_TITLE: "Private Ancored Registry"
+      
+      DELETE_IMAGES: "true"
+      
+      SHOW_CONTENT_DIGEST: "true"
+      
+      NGINX_PROXY_PASS_URL: http://registry:5000 # registry container target url
+    depends_on:
+      - registry
+
+  # Optional: Registry garbage collector (runs periodically)
+  registry-gc:
+    image: registry:2
+    container_name: docker-registry-gc
+    restart: "no"
+    profiles:
+      - maintenance
+    environment:
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+    volumes:
+      - registry-data:/var/lib/registry
+    command: ["garbage-collect", "/etc/docker/registry/config.yml"]
+
+volumes:
+  registry-data:
+    driver: local
